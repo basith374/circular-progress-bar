@@ -1,0 +1,221 @@
+<html>
+    <head>
+        <title>D3 Test</title>
+        <style>
+            body {
+                font-family: Rubik, sans-serif;
+                padding: 30px;
+            }
+            .row {
+                display: flex;
+            }
+            .row .box + .box {
+                margin-left: 40px;
+            }
+            .box {
+                background: #fff;
+                border-radius: 8px;
+                box-shadow: 0 0 50px 0px rgba(0,0,0,.1);
+                position: relative;
+            }
+            .box.color {
+                background-image: linear-gradient(90deg, #fc6076 0%, #ff9a44 100%);
+                box-shadow: 0 0 50px 0px rgba(252, 96, 118,.6);
+            }
+            .box .title {
+                position: absolute;
+                top: 20px;
+                left: 20px;
+                color: #333;
+                font-size: 18px;
+            }
+            .box.color .title {
+                color: #fff;
+            }
+            .box .title > div {
+                display: inline;
+            }
+            .box .title > div.red {
+                color: #e74c3c;
+            }
+            .box .title > div.green {
+                color: #27ae60;
+            }
+            .box.color .title > div {
+                color: #fff;
+            }
+        </style>
+        <link href="https://fonts.googleapis.com/css?family=Rubik" rel="stylesheet">
+    </head>
+    <body>
+        <div class="row">
+            <div class="box">
+                <div class="title">HITS <div class="green">+2.4%</div></div>
+                <div id="content"></div>
+            </div>
+            <div class="box color">
+                <div class="title">SALES <div class="red">-0.4%</div></div>
+                <svg id="graph2"></svg>
+            </div>
+        </div>
+        <script src="http://d3js.org/d3.v3.min.js"></script>
+        <script>
+            var startPercent = 0;
+            var endPercent = .87;
+            var count = Math.abs((endPercent - startPercent) / 0.01);
+            var step = endPercent < startPercent ? -0.01 : 0.01;
+
+            var parent = d3.select('div#content');
+            var svg = parent.append('svg')
+            let progressBar = new drawProgress(svg, {
+                progress: 0,
+                color: ['#fc6076', '#ff9a44'],
+                borderColor: '#ccc',
+                fontColor: '#333', 
+                dotColor: [252, 96, 118],
+            })
+            var progress = startPercent;
+
+            (function loops() {
+                progressBar.updateProgress(progress)
+
+                if (count > 0) {
+                    count--;
+                    progress += step;
+                    setTimeout(loops, 10);
+                }
+            })();
+
+
+            function drawProgress(svg, config) {
+                let vm = this;
+                let {progress, color, borderColor, fontColor, dotColor} = config;
+
+                function drawOutCircles(el, color, radius) {
+
+                    for(let i=0; i < 4; i++) {
+                        el.append('circle')
+                            .attr('stroke', color)
+                            .attr('fill', 'transparent')
+                            .attr('stroke-width', 2)
+                            .attr('stroke-dasharray', '4, 10')
+                            .attr('r', radius + (30 * i) - 2.5)
+                            .attr('opacity', 1 - i * .2)
+                    }
+                }
+
+                function drawProgressDot(el, radius, color, progress) {
+                    let r = color[0]
+                    let g = color[1]
+                    let b = color[2]
+                    let dot = el.append('g')
+
+                    dot.append('circle')
+                        .attr('fill', `rgba(${r}, ${g}, ${b}, .3)`)
+                        .attr('r', 7)
+                        .attr('cx', 0)
+                        .attr('cy', -radius + 2.5)
+                        .attr('filter', 'url(#blur)');
+
+                    dot.append('circle')
+                        .attr('fill', `rgb(${r}, ${g}, ${b})`)
+                        .attr('r', 5)
+                        .attr('cx', 0)
+                        .attr('cy', -radius + 2.5)
+
+                    dot.attr('transform', 'rotate(' + (360 * progress) + ')')
+
+                    vm.dot = dot
+                }
+
+                function drawProgressLine(g, color, progress) {
+                    let arc = d3.svg.arc()
+                        .startAngle(0)
+                        .innerRadius(radius)
+                        .outerRadius(radius - border)
+                        .cornerRadius(border)
+
+                    vm.front = g.append('path')
+                        .attr('fill', typeof color == 'object' ? 'url(#grad)' : color)
+                        .attr('d', arc.endAngle(twoPi * progress));
+                    
+                    vm.arc = arc;
+
+                }
+
+                function drawProgressText(g, fontColor, progress) {
+                    vm.numberText = g.append('text')
+                        .attr('fill', fontColor)
+                        .attr('text-anchor', 'middle')
+                        .attr('dy', '.35em')
+                        .attr('font-size', '40px')
+                        .text(formatPercent(progress))
+
+                }
+
+                function addBlurFilterDef(svg) {
+                    var defs = svg.append('defs');
+                    var filter = defs.append('filter')
+                        .attr('id', 'blur');
+
+                    filter.append('feGaussianBlur')
+                        .attr('in', 'SourceGraphic')
+                        .attr('stdDeviation', '1');
+                }
+
+                function addGradientDef(svg, color) {
+                    var defs = svg.append('defs');
+                    var grad = defs.append('linearGradient')
+                        .attr('id', 'grad')
+
+                    grad.append('stop')
+                        .attr('offset', '0%')
+                        .attr('stop-color', color[0])
+
+                    grad.append('stop')
+                        .attr('offset', '100%')
+                        .attr('stop-color', color[1])
+                    .attr('fill', 'url(#grad)')
+                }
+
+                this.updateProgress = function(progress) {
+                    vm.dot.attr('transform', 'rotate(' + (360 * progress) + ')')
+                    vm.front.attr('d', vm.arc.endAngle(twoPi * progress));
+                    vm.numberText.text(formatPercent(progress));
+                }
+
+                var twoPi = Math.PI * 2;
+                var formatPercent = d3.format('.0%');
+
+                let radius = 80;
+                let border = 5;
+                let padding = 70;
+                var boxSize = (radius + padding) * 2;
+                svg.attr('width', boxSize)
+                    .attr('height', boxSize);
+
+                if(typeof color == 'object') {
+                    addGradientDef(svg, color)
+                }
+            
+                var g = svg.append('g')
+                    .attr('transform', 'translate(' + boxSize / 2 + ',' + boxSize / 2 + ')');
+                addBlurFilterDef(svg)
+                drawOutCircles(g, borderColor, radius)
+                drawProgressLine(g, color, progress);
+                drawProgressText(g, fontColor, progress)
+                drawProgressDot(g, radius, dotColor, progress)
+
+            }
+
+            new drawProgress(d3.select('#graph2'), {
+                progress: .68,
+                color: '#fff',
+                borderColor: '#fff',
+                fontColor: '#fff', 
+                dotColor: [255, 255, 255]
+            })
+        </script>
+    </body>
+</html>
+
